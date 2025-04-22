@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bragi's Mana Tracker</title>
+  <style>
+    body {
+      background-color: #ffffff; /* changed from #111 */
+      font-family: 'Georgia', serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .frame-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      background-image: url('HealthFrame.png');
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      background-position: center;
+      font-size: clamp(14px, 2vw, 20px);
+      overflow: hidden;
+      padding-bottom: 100%; /* This keeps the container square but flexible */
+    }
+            
+    .content {
+      position: absolute;
+      top: 10%;
+      left: 10%;
+      right: 10%;
+      bottom: 10%;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      font-size: clamp(14px, 1.2vw, 18px);
+      color: #222;
+      overflow: auto; /* Allow content to grow if necessary */
+    }
+        
+    .content h1 {
+      font-size: 2em;
+      margin-top: 0.5em;
+      margin-bottom: 0.5em;
+    }
+    
+    #mana {
+      font-size: 2em;
+    }
+
+    button {
+      background: #333;
+      color: white;
+      border: 1px solid #666;
+      font-size: 0.8em;
+      padding: 0.4em 0.8em;
+      margin: 0.3em;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    .small-btn {
+      background: #222;
+      color: white;
+      border: 1px solid #444;
+      font-size: 0.4em;
+      padding: 0.4em 0.8em;
+      margin: 0.3em;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    
+  .mana-bar-container {
+    height: 1.8em;
+    border-radius: 0.8em;
+    margin: 0.5em 10% 1em 10%
+  }
+    
+  .small-btn:hover {
+    background: #444;
+  }
+      
+    button:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame-container">
+    <div class="content">
+      <h1>Mana</h1>
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1em;">
+          <div style="display: flex; align-items: center; gap: 0.5em;">
+            <div id="mana" style="font-size: 2em;">Loading...</div>
+            <div style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+              <button class="small-btn" onclick="adjustMana(1)">&#9650;</button>
+              <button class="small-btn" onclick="adjustMaxMana(-1)">&#9660;</button>
+            </div>
+          </div>
+        </div>
+        <div class="mana-bar-container" style="background: #ddd; overflow: hidden;">
+          <div id="mana-bar" style="height: 100%; background: blue; width: 100%; transition: width 0.3s ease;"></div>
+        </div>
+        <div>
+          <button onclick="updateMana(-1)">-1</button>
+          <button onclick="updateMana(1)">+1</button>
+          <button onclick="resetMana()">Full Mana</button>
+        </div>
+    </div>
+    <img id="nocasting-overlay" src="nocasting.png" alt="NoCasting" style="
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      z-index: 5;
+    ">
+  </div>
+
+  <script>
+    const binId = '6804eef68960c979a589342b';
+    const apiKey = '$2a$10$8TH7O/Zi1by5brUwAQ1sHuhni1xdi8MIG/A.mxonUfTPkihZXCCZ.';
+    const baseUrl = `https://api.jsonbin.io/v3/b/${binId}`;
+    const headers = {
+      'X-Master-Key': apiKey,
+      'Content-Type': 'application/json'
+    };
+
+    let bragiMana = 0;
+    let bragiMaxMana = 0;
+
+    async function fetchMana() {
+      try {
+        const res = await fetch(`${baseUrl}/latest`, { headers });
+        const data = await res.json();
+        bragiMana = data.record.bragi_mana;
+        bragiMaxMana = data.record.bragi_max_mana;
+        renderMana();
+      } catch (err) {
+        console.error('Error fetching mana:', err);
+        document.getElementById('mana').innerText = 'Error loading mana.';
+      }
+    }
+
+    function renderMana() {
+      document.getElementById('mana').innerText = `${bragiMana} / ${bragiMaxMana}`;
+    
+      const percent = Math.min(100, (bragiMana / bragiMaxMana) * 100);
+      const bar = document.getElementById('mana-bar');
+      bar.style.width = percent + '%';
+      bar.style.background = 'blue';
+    
+      const nocasting = document.getElementById('nocasting-overlay');
+      skull.style.opacity = bragiMana <= 0 ? 1 : 0;
+    }
+
+        
+    async function updateMana(change) {
+      bragiMana = Math.max(0, bragiMana + change);
+      renderMana();
+    
+      const res = await fetch(`${baseUrl}/latest`, { headers });
+      const data = await res.json();
+      const fullRecord = data.record;
+    
+      fullRecord.bragi_mana = bragiMana;
+      fullRecord.bragi_max_mana = bragiMaxMana;
+    
+      await fetch(baseUrl, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(fullRecord)
+      });
+    }
+
+    async function resetMana() {
+      bragiMana = bragiMaxMana;
+      renderMana();
+    
+      const res = await fetch(`${baseUrl}/latest`, { headers });
+      const data = await res.json();
+      const fullRecord = data.record;
+    
+      fullRecord.bragi_mana = bragiMana;
+      fullRecord.bragi_max_mana = bragiMaxMana;
+    
+      await fetch(baseUrl, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(fullRecord)
+      });
+    }
+
+    
+    async function adjustMaxMana(change) {
+      bragiMaxMana = Math.max(1, bragiMaxMana + change);
+      bragiMana = Math.min(bragiMana, bragiMaxMana); // clamp current HP if over new max
+  
+      renderMana();
+  
+        // Fetch existing full data from the bin
+      const res = await fetch(`${baseUrl}/latest`, { headers });
+      const data = await res.json();
+      const fullRecord = data.record;
+    
+      // Update just the level-related values
+      fullRecord.bragi_mana = bragiMana;
+      fullRecord.bragi_max_mana = bragiMaxMana;
+    
+      // Put the updated full record back
+      await fetch(baseUrl, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(fullRecord)
+      });
+    }
+    
+    fetchMana();
+  </script>
+</body>
+</html
