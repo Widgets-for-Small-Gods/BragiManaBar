@@ -159,7 +159,7 @@
       bar.style.background = 'blue';
     
       const nocasting = document.getElementById('nocasting-overlay');
-      skull.style.opacity = bragiMana <= 0 ? 1 : 0;
+      nocasting.style.opacity = bragiMana <= 0 ? 1 : 0;
     }
 
         
@@ -223,7 +223,9 @@
       });
     }
     
-    fetchMana();
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchMana();
+    });
   </script>
 </body>
 </html>
