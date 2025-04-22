@@ -226,6 +226,16 @@
     document.addEventListener('DOMContentLoaded', () => {
       fetchMana();
     });
+    
+    // Always poll every X seconds
+    setInterval(fetchMana, 30000);
+
+    // Also fetch immediately when someone returns to the page
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        fetchMana();
+      }
+    });
   </script>
 </body>
 </html>
