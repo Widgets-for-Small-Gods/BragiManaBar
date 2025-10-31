@@ -125,117 +125,120 @@
     ">
   </div>
 
-  <script>
-    const binId = '6804eef68960c979a589342b';
-    const apiKey = '$2a$10$8TH7O/Zi1by5brUwAQ1sHuhni1xdi8MIG/A.mxonUfTPkihZXCCZ.';
-    const baseUrl = `https://api.jsonbin.io/v3/b/${binId}`;
-    const headers = {
-      'X-Master-Key': apiKey,
-      'Content-Type': 'application/json'
-    };
+   <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    let bragiMana = 0;
-    let bragiMaxMana = 0;
+    // --- Supabase config ---
+    const SUPABASE_URL = 'https://emrsydwvrmwrnyrotgdl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcnN5ZHd2cm13cm55cm90Z2RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjUxNjUsImV4cCI6MjA3NzQwMTE2NX0.7xiMRkxH72DTTzOR_CdtCXqSJXyg7pNbu4jh4zhjGSs';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function fetchMana() {
-      try {
-        const res = await fetch(`${baseUrl}/latest`, { headers });
-        const data = await res.json();
-        bragiMana = data.record.bragi_mana;
-        bragiMaxMana = data.record.bragi_max_mana;
-        renderMana();
-      } catch (err) {
-        console.error('Error fetching mana:', err);
-        document.getElementById('mana').innerText = 'Error loading mana.';
+    const WIDGET_ID = 'bragi';
+    const manaEl = document.getElementById("mana");
+    const manaBar = document.getElementById("mana-bar");
+    const skullOverlay = document.getElementById("skull-overlay");
+
+    let mana = 0;
+    let max_mana = 0;
+
+    async function loadData() {
+      const { data, error } = await supabase
+        .from('widgets')
+        .select('mana, max_mana')
+        .eq('id', WIDGET_ID)
+        .single();
+
+      if (error) {
+        console.error(error);
+        return;
       }
+
+      mana = data.mana;
+      max_mana = data.max_mana;
+      renderMana();
+    }
+
+    async function saveData() {
+      const { error } = await supabase
+        .from('widgets')
+        .update({ mana, max_mana })
+        .eq('id', WIDGET_ID);
+
+      if (error) console.error(error);
     }
 
     function renderMana() {
-      document.getElementById('mana').innerText = `${bragiMana} / ${bragiMaxMana}`;
-    
-      const percent = Math.min(100, (bragiMana / bragiMaxMana) * 100);
-      const bar = document.getElementById('mana-bar');
-      bar.style.width = percent + '%';
-      bar.style.background = 'blue';
-    
-      const nocasting = document.getElementById('nocasting-overlay');
-      nocasting.style.opacity = bragiMana <= 0 ? 1 : 0;
+      manaEl.textContent = `${mana}/${max_mana}`;
+      const percent = (mana / max_mana) * 100;
+      manaBar.style.width = `${percent}%`;
+
+      if (percent > 60) manaBar.style.background = "green";
+      else if (percent > 30) manaBar.style.background = "orange";
+      else manaBar.style.background = "red";
+
+      skullOverlay.style.opacity = mana <= 0 ? 0.9 : 0;
     }
 
-        
-    async function updateMana(change) {
-      bragiMana = Math.max(0, bragiMana + change);
+    function updateMana(amount) {
+      mana = Math.max(0, Math.min(max_mana, mana + amount));
       renderMana();
-    
-      const res = await fetch(`${baseUrl}/latest`, { headers });
-      const data = await res.json();
-      const fullRecord = data.record;
-    
-      fullRecord.bragi_mana = bragiMana;
-      fullRecord.bragi_max_mana = bragiMaxMana;
-    
-      await fetch(baseUrl, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(fullRecord)
-      });
+      saveData();
     }
 
-    async function resetMana() {
-      bragiMana = bragiMaxMana;
+    function adjustMaxMana(amount) {
+      max_mana = Math.max(1, max_mana + amount);
+      mana = Math.min(mana, max_mana);
       renderMana();
-    
-      const res = await fetch(`${baseUrl}/latest`, { headers });
-      const data = await res.json();
-      const fullRecord = data.record;
-    
-      fullRecord.bragi_mana = bragiMana;
-      fullRecord.bragi_max_mana = bragiMaxMana;
-    
-      await fetch(baseUrl, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(fullRecord)
-      });
+      saveData();
     }
 
-    
-    async function adjustMaxMana(change) {
-      bragiMaxMana = Math.max(1, bragiMaxMana + change);
-      bragiMana = Math.min(bragiMana, bragiMaxMana); // clamp current HP if over new max
-  
+    function resetMana() {
+      mana = max_mana;
       renderMana();
-  
-        // Fetch existing full data from the bin
-      const res = await fetch(`${baseUrl}/latest`, { headers });
-      const data = await res.json();
-      const fullRecord = data.record;
+      saveData();
+    }
+
+    loadData();
+
+    window.updateMana = updateMana;
+    window.adjustMaxMana = adjustMaxMana;
+    window.resetMana = resetMana;
+
+    // --- Auto-refresh every 3 minutes when visible ---
+    let refreshInterval = null;
     
-      // Update just the level-related values
-      fullRecord.bragi_mana = bragiMana;
-      fullRecord.bragi_max_mana = bragiMaxMana;
-    
-      // Put the updated full record back
-      await fetch(baseUrl, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(fullRecord)
-      });
+    function startAutoRefresh() {
+      // Prevent multiple intervals
+      if (refreshInterval) return;
+      refreshInterval = setInterval(() => {
+        if (!document.hidden) { // Only refresh if the tab is visible
+          console.log("Refreshing mana data from Supabase...");
+          loadData();
+        }
+      }, 3 * 60 * 1000); // every 3 minutes
     }
     
-    document.addEventListener('DOMContentLoaded', () => {
-      fetchMana();
-    });
+    function stopAutoRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    }
     
-    // Always poll every X seconds
-    setInterval(fetchMana, 30000);
-
-    // Also fetch immediately when someone returns to the page
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        fetchMana();
+    // Handle visibility changes
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopAutoRefresh();
+      } else {
+        startAutoRefresh();
       }
     });
+    
+    // Start auto-refresh if page is visible when loaded
+    if (!document.hidden) {
+      startAutoRefresh();
+    }
+    
   </script>
 </body>
 </html>
