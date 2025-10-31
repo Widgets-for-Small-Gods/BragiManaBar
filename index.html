@@ -136,7 +136,7 @@
     const WIDGET_ID = 'bragi';
     const manaEl = document.getElementById("mana");
     const manaBar = document.getElementById("mana-bar");
-    const skullOverlay = document.getElementById("skull-overlay");
+    const noCastingOverlay = document.getElementById("nocasting-overlay");
 
     let mana = 0;
     let max_mana = 0;
@@ -173,7 +173,7 @@
       manaBar.style.width = `${percent}%`;
       manaBar.style.background = "blue";
 
-      skullOverlay.style.opacity = mana <= 0 ? 0.9 : 0;
+      noCastingOverlay.style.opacity = mana <= 0 ? 0.9 : 0;
     }
 
     function updateMana(amount) {
