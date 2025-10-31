@@ -171,10 +171,7 @@
       manaEl.textContent = `${mana}/${max_mana}`;
       const percent = (mana / max_mana) * 100;
       manaBar.style.width = `${percent}%`;
-
-      if (percent > 60) manaBar.style.background = "green";
-      else if (percent > 30) manaBar.style.background = "orange";
-      else manaBar.style.background = "red";
+      manaBar.style.background = "blue";
 
       skullOverlay.style.opacity = mana <= 0 ? 0.9 : 0;
     }
