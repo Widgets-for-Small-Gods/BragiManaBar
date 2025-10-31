@@ -177,7 +177,7 @@
     }
 
     function updateMana(amount) {
-      mana = Math.max(0, Math.min(max_mana, mana + amount));
+      mana = Math.max(0, mana + amount);
       renderMana();
       saveData();
     }
